@@ -20,7 +20,7 @@ InputSimulator::~InputSimulator()
 
 void InputSimulator::simulateXInputButton(XInputButtons_t buttons, PressedState state)
 {
-	XInputButtons_t dest = xpad.wButtons;
+	XInputButtons_t dest = xinputPad.wButtons;
 
 	switch (state)
 	{
@@ -40,7 +40,7 @@ void InputSimulator::simulateXInputButton(XInputButtons_t buttons, PressedState 
 			throw std::out_of_range("invalid PressedState");
 	}
 
-	xpad.wButtons = dest;
+	xinputPad.wButtons = dest;
 }
 
 void InputSimulator::simulateXInputAxis(XInputAxes& axes, float m)
@@ -68,49 +68,49 @@ void InputSimulator::simulateXInputAxis(XInputAxes& axes, float m)
 		switch (bit)
 		{
 			case XInputAxis::leftStickX:
-				if (isFirst || axis > std::abs(xpad.sThumbLX))
+				if (isFirst || axis > std::abs(xinputPad.sThumbLX))
 				{
-					xpad.sThumbLX = workAxis;
+					xinputPad.sThumbLX = workAxis;
 				}
 
 				break;
 
 			case XInputAxis::leftStickY:
-				if (isFirst || axis > std::abs(xpad.sThumbLY))
+				if (isFirst || axis > std::abs(xinputPad.sThumbLY))
 				{
-					xpad.sThumbLY = workAxis;
+					xinputPad.sThumbLY = workAxis;
 				}
 
 				break;
 
 			case XInputAxis::rightStickX:
-				if (isFirst || axis > std::abs(xpad.sThumbRX))
+				if (isFirst || axis > std::abs(xinputPad.sThumbRX))
 				{
-					xpad.sThumbRX = workAxis;
+					xinputPad.sThumbRX = workAxis;
 				}
 
 				break;
 
 			case XInputAxis::rightStickY:
-				if (isFirst || axis > std::abs(xpad.sThumbRY))
+				if (isFirst || axis > std::abs(xinputPad.sThumbRY))
 				{
-					xpad.sThumbRY = workAxis;
+					xinputPad.sThumbRY = workAxis;
 				}
 
 				break;
 
 			case XInputAxis::leftTrigger:
-				if (isFirst || trigger > xpad.bLeftTrigger)
+				if (isFirst || trigger > xinputPad.bLeftTrigger)
 				{
-					xpad.bLeftTrigger = trigger;
+					xinputPad.bLeftTrigger = trigger;
 				}
 
 				break;
 
 			case XInputAxis::rightTrigger:
-				if (isFirst || trigger > xpad.bRightTrigger)
+				if (isFirst || trigger > xinputPad.bRightTrigger)
 				{
-					xpad.bRightTrigger = trigger;
+					xinputPad.bRightTrigger = trigger;
 				}
 
 				break;
@@ -326,21 +326,6 @@ void InputSimulator::applyProfile(DeviceProfile* profile)
 	{
 		scpDisconnect();
 	}
-}
-
-void InputSimulator::readXInput() const
-{
-	if (!profile->useXInput || xinputTarget == nullptr)
-	{
-		return;
-	}
-
-	if (realXInputIndex < 0)
-	{
-		return;
-	}
-
-	// UNDONE: handle the rumble data received from the driver callback in a thread-safe way
 }
 
 PressedState InputSimulator::handleTouchToggle(InputMap& m, InputModifier* modifier, const Pressable& pressable)
@@ -566,10 +551,10 @@ void InputSimulator::runMaps()
 		updateBindingState(m, nullptr);
 	}
 
-	if (profile->useXInput && realXInputIndex >= 0 && xpad != last_xpad)
+	if (profile->useXInput && realXInputIndex >= 0 && xinputPad != xinputLast)
 	{
-		last_xpad = xpad;
-		xinputTarget->update(/*realXInputIndex,*/ xpad);
+		xinputLast = xinputPad;
+		xinputTarget->update(/*realXInputIndex,*/ xinputPad);
 	}
 }
 
@@ -813,7 +798,7 @@ void InputSimulator::updateBindingState(InputMap& m, InputModifier* modifier)
 	{
 		case InputType::touchRegion:
 		{
-			auto it = profile->touchRegions.find(m.inputRegion);
+			const auto it = profile->touchRegions.find(m.inputRegion);
 			if (it == profile->touchRegions.end())
 			{
 				break;
@@ -840,6 +825,17 @@ void InputSimulator::updateBindingState(InputMap& m, InputModifier* modifier)
 	}
 
 	runMap(m, modifier);
+}
+
+void InputSimulator::updateEmulators() const
+{
+	if (realXInputIndex < 0)
+	{
+		return;
+	}
+
+	parent->output.leftMotor  = static_cast<uint8_t>(xinputVibration.wLeftMotorSpeed >> 8);
+	parent->output.rightMotor = static_cast<uint8_t>(xinputVibration.wRightMotorSpeed >> 8);
 }
 
 bool InputSimulator::scpConnect()
@@ -919,6 +915,13 @@ bool InputSimulator::scpDeviceOpen()
 	}
 
 	xinputTarget = std::make_unique<vigem::XInputTarget>(&Program::driver);
+
+	xinputTarget->notification += [this](auto sender, auto large, auto small, auto led) -> void
+	{
+		this->xinputVibration.wLeftMotorSpeed = (large << 8) | large;
+		this->xinputVibration.wRightMotorSpeed = (small << 8) | small;
+	};
+
 	return true;
 }
 

@@ -27,8 +27,9 @@ class InputSimulator
 	std::deque<Ds4TouchRegion*> touchRegions;
 
 	int realXInputIndex = -1;
-	XInputGamepad xpad {};
-	XInputGamepad last_xpad {};
+	XInputGamepad xinputPad {};
+	XInputGamepad xinputLast {};
+	XINPUT_VIBRATION xinputVibration {};
 	std::unique_ptr<vigem::XInputTarget> xinputTarget;
 	XInputAxis_t simulatedXInputAxis = 0;
 
@@ -51,7 +52,6 @@ public:
 	bool isOverriddenByModifierSet(InputMapBase& map);
 	void runMap(InputMap& m, InputModifier* modifier);
 	void applyProfile(DeviceProfile* profile);
-	void readXInput() const;
 	static PressedState handleTouchToggle(InputMap& m, InputModifier* modifier, const Pressable& pressable);
 	void applyMap(InputMap& m, InputModifier* modifier, PressedState state, float analog);
 	void simulateMouse(const InputMap& m, PressedState state, float analog);
@@ -65,6 +65,7 @@ public:
 	void updatePressedState(InputModifier& modifier);
 	void updatePressedState(InputMap& map, InputModifier* modifier);
 	void updateBindingState(InputMap& m, InputModifier* modifier);
+	void updateEmulators() const;
 
 private:
 	bool scpConnect();
