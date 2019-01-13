@@ -9,7 +9,7 @@
 #include "enums.h"
 #include "Pressable.h"
 #include "InputMap.h"
-#include "ScpDevice.h"
+#include "XInputGamepad.h"
 
 class Ds4Device;
 
