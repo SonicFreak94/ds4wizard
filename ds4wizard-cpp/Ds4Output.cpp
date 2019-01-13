@@ -42,8 +42,3 @@ bool Ds4Output::update(const gsl::span<uint8_t>& buffer) const
 
 	return result;
 }
-
-void Ds4Output::fromXInput(int index, ScpDevice* device)
-{
-	device->getVibration(index, leftMotor, rightMotor);
-}

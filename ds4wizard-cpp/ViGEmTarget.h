@@ -36,11 +36,12 @@ namespace vigem
 		bool connected() const;
 		VIGEM_ERROR disconnect();
 
+		void update(const XInputGamepad& data) const;
+
 		XInputTarget& operator=(const XInputTarget&) = delete;
 
 	private:
 		void close();
 		static void raiseEvent(PVIGEM_CLIENT client, PVIGEM_TARGET target, uint8_t largeMotor, uint8_t smallMotor, uint8_t ledNumber);
-		void raiseEvent(uint8_t largeMotor, uint8_t smallMotor, uint8_t ledNumber);
 	};
 }

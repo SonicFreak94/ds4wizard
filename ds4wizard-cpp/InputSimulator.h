@@ -2,7 +2,6 @@
 
 #include <deque>
 #include <functional>
-#include <mutex>
 
 #include "KeyboardSimulator.h"
 #include "MouseSimulator.h"
@@ -10,14 +9,13 @@
 #include "Pressable.h"
 #include "InputMap.h"
 #include "XInputGamepad.h"
+#include "ViGEmTarget.h"
 
 class Ds4Device;
 
 class InputSimulator
 {
 	static constexpr Ds4Buttons_t touchMask = Ds4Buttons::touch1 | Ds4Buttons::touch2;
-	static std::recursive_mutex s_scpLock;
-	static std::shared_ptr<ScpDevice> s_scpDevice;
 
 	Ds4Device* parent = nullptr;
 	DeviceProfile* profile = nullptr;
@@ -31,11 +29,11 @@ class InputSimulator
 	int realXInputIndex = -1;
 	XInputGamepad xpad {};
 	XInputGamepad last_xpad {};
-	std::shared_ptr<ScpDevice> scpDevice;
+	std::unique_ptr<vigem::XInputTarget> xinputTarget;
 	XInputAxis_t simulatedXInputAxis = 0;
 
 public:
-	Event<Ds4Device> onScpXInputHandleFailure;
+	Event<Ds4Device> onXInputHandleFailure;
 
 	InputSimulator() = delete;
 	InputSimulator(const InputSimulator&) = delete;
@@ -72,6 +70,6 @@ private:
 	bool scpConnect();
 	void scpDisconnect();
 
-	static bool scpDeviceOpen();
-	static void scpDeviceClose();
+	bool scpDeviceOpen();
+	void scpDeviceClose();
 };

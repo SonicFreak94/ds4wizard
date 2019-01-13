@@ -94,6 +94,11 @@ namespace vigem
 		return result;
 	}
 
+	void XInputTarget::update(const XInputGamepad& data) const
+	{
+		vigem_target_x360_update(parent->client, this->target, *reinterpret_cast<const XUSB_REPORT*>(&data));
+	}
+
 	void XInputTarget::close()
 	{
 		disconnect();
@@ -105,19 +110,15 @@ namespace vigem
 		}
 	}
 
-	void XInputTarget::raiseEvent(PVIGEM_CLIENT /*client*/, PVIGEM_TARGET target, uint8_t largeMotor, uint8_t smallMotor, uint8_t ledNumber)
+	void XInputTarget::raiseEvent(PVIGEM_CLIENT client, PVIGEM_TARGET target, uint8_t largeMotor, uint8_t smallMotor, uint8_t ledNumber)
 	{
-		XInputTarget* xtarget = nullptr;
-
 		static_mutex.lock();
-		xtarget = targets[target];
+		XInputTarget* xtarget = targets[target];
 		static_mutex.unlock();
 
-		xtarget->raiseEvent(largeMotor, smallMotor, ledNumber);
-	}
-
-	void XInputTarget::raiseEvent(uint8_t largeMotor, uint8_t smallMotor, uint8_t ledNumber)
-	{
-		notification.invoke(this, largeMotor, smallMotor, ledNumber);
+		if (xtarget->parent->client == client)
+		{
+			xtarget->notification.invoke(xtarget, largeMotor, smallMotor, ledNumber);
+		}
 	}
 }

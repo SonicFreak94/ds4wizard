@@ -7,14 +7,10 @@
 
 using namespace std::chrono;
 
-std::recursive_mutex InputSimulator::s_scpLock {};
-std::shared_ptr<ScpDevice> InputSimulator::s_scpDevice = nullptr;
-
 InputSimulator::InputSimulator(Ds4Device* parent)
 	: parent(parent)
 {
 	scpDeviceOpen();
-	this->scpDevice = s_scpDevice;
 }
 
 InputSimulator::~InputSimulator()
@@ -334,7 +330,7 @@ void InputSimulator::applyProfile(DeviceProfile* profile)
 
 void InputSimulator::readXInput() const
 {
-	if (!profile->useXInput || scpDevice == nullptr)
+	if (!profile->useXInput || xinputTarget == nullptr)
 	{
 		return;
 	}
@@ -344,8 +340,7 @@ void InputSimulator::readXInput() const
 		return;
 	}
 
-	scpDevice->syncState(realXInputIndex);
-	parent->output.fromXInput(realXInputIndex, scpDevice.get());
+	// UNDONE: handle the rumble data received from the driver callback in a thread-safe way
 }
 
 PressedState InputSimulator::handleTouchToggle(InputMap& m, InputModifier* modifier, const Pressable& pressable)
@@ -574,7 +569,7 @@ void InputSimulator::runMaps()
 	if (profile->useXInput && realXInputIndex >= 0 && xpad != last_xpad)
 	{
 		last_xpad = xpad;
-		scpDevice->syncState(realXInputIndex, xpad);
+		xinputTarget->update(/*realXInputIndex,*/ xpad);
 	}
 }
 
@@ -854,24 +849,21 @@ bool InputSimulator::scpConnect()
 		return false;
 	}
 
-	if (scpDevice == nullptr)
-	{
-		scpDevice = s_scpDevice;
-	}
-
 	if (realXInputIndex >= 0)
 	{
 		return true;
 	}
 
-	int index = profile->autoXInputIndex ? ScpDevice::getFreePort() : profile->xinputIndex;
+	// HACK:
+	int index = 0;
+	//int index = profile->autoXInputIndex ? ScpDevice::getFreePort() : profile->xinputIndex;
 
 	if (index < 0)
 	{
 		return false;
 	}
 
-	if (scpDevice->connect(index))
+	if (VIGEM_SUCCESS(xinputTarget->connect()))
 	{
 		realXInputIndex = index;
 		return true;
@@ -880,14 +872,14 @@ bool InputSimulator::scpConnect()
 	// If connecting an emulated XInput controller failed,
 	// it's likely because it's already connected. Disconnect
 	// it before continuing.
-	scpDevice->disconnect(index);
+	xinputTarget->disconnect();
 
 	bool ok = false;
 
 	// Try up to 4 times to recover the virtual controller.
 	for (size_t i = 0; i < 4; i++)
 	{
-		ok = scpDevice->connect(index);
+		ok = xinputTarget->connect();
 
 		if (ok)
 		{
@@ -900,7 +892,7 @@ bool InputSimulator::scpConnect()
 
 	if (!ok)
 	{
-		onScpXInputHandleFailure.invoke(parent);
+		onXInputHandleFailure.invoke(parent);
 		return false;
 	}
 
@@ -910,57 +902,32 @@ bool InputSimulator::scpConnect()
 
 void InputSimulator::scpDisconnect()
 {
-	if (realXInputIndex < 0 || !scpDevice)
+	if (realXInputIndex < 0 || !xinputTarget)
 	{
 		return;
 	}
 
-	scpDevice->disconnect(realXInputIndex);
+	xinputTarget->disconnect();
 	realXInputIndex = -1;
 }
 
 bool InputSimulator::scpDeviceOpen()
 {
-	std::lock_guard<std::recursive_mutex> lock(s_scpLock);
-
-	if (s_scpDevice != nullptr)
+	if (!Program::driver.isOpen())
 	{
-		return true;
-	}
-
-	std::unique_ptr<hid::HidInstance> info;
-
-	hid::enumerateGuid([&](const std::wstring& path, const std::wstring& instanceId) -> bool
-	{
-		info = std::make_unique<hid::HidInstance>(path, instanceId);
-		return true;
-	}, GUID_DEVINTERFACE_SCPVBUS);
-
-	if (info == nullptr)
-	{
-		// TODO: onScpDeviceMissing.invoke(this);
 		return false;
 	}
 
-	auto handle = Handle(CreateFile(info->path.c_str(), GENERIC_READ | GENERIC_WRITE,
-	                                FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr), true);
-
-	if (!handle.isValid())
-	{
-		// TODO: onScpDeviceOpenFailed.invoke(this);
-		return false;
-	}
-
-	s_scpDevice = std::make_shared<ScpDevice>(std::move(handle));
+	xinputTarget = std::make_unique<vigem::XInputTarget>(&Program::driver);
 	return true;
 }
 
 void InputSimulator::scpDeviceClose()
 {
-	if (s_scpDevice == nullptr)
+	if (xinputTarget)
 	{
-		return;
+		xinputTarget->disconnect();
 	}
 
-	s_scpDevice = nullptr;
+	xinputTarget = nullptr;
 }
