@@ -141,7 +141,7 @@
       <OutputFile>.\GeneratedFiles\qrc_%(Filename).cpp</OutputFile>
     </QtRcc>
     <PostBuildEvent>
-      <Command>copy "$(SolutionDir)bin\debug\$(PlatformShortName)\ViGEmClient.dll" "$(SolutionDir)bin\debug\"</Command>
+      <Command>copy "$(SolutionDir)bin\$(Configuration)\$(PlatformShortName)\ViGEmClient.dll" "$(SolutionDir)bin\$(Configuration)\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
